@@ -30,7 +30,9 @@ TILE_URLS = [
 # Размеры
 TILE_SIZE = 1000  # Размер каждого тайла (1000x1000)
 GRID_SIZE = 3     # Размер сетки (3x3)
-FINAL_SIZE = TILE_SIZE * GRID_SIZE  # Итоговый размер (3000x3000)
+ORIGINAL_SIZE = TILE_SIZE * GRID_SIZE  # Оригинальный размер (3000x3000)
+FINAL_SIZE = 9000  # Увеличенный размер для лучшей видимости пикселей
+SCALE_FACTOR = FINAL_SIZE // ORIGINAL_SIZE  # Коэффициент масштабирования (3x)
 
 def download_image(url, timeout=30):
     """
@@ -66,8 +68,8 @@ def create_merged_image():
     Returns:
         PIL.Image: Объединенное изображение или None в случае ошибки
     """
-    # Создаем новое изображение с размером 3000x3000 с прозрачным фоном
-    merged_image = Image.new('RGBA', (FINAL_SIZE, FINAL_SIZE), color=(0, 0, 0, 0))
+    # Создаем новое изображение с оригинальным размером 3000x3000 с прозрачным фоном
+    merged_image = Image.new('RGBA', (ORIGINAL_SIZE, ORIGINAL_SIZE), color=(0, 0, 0, 0))
     
     failed_tiles = []
     
@@ -102,7 +104,11 @@ def create_merged_image():
         for url in failed_tiles:
             logger.warning(f"Неудачный тайл: {url}")
     
-    return merged_image
+    # Увеличиваем изображение до 9000x9000 для лучшей видимости пикселей
+    logger.info(f"Масштабирую изображение с {ORIGINAL_SIZE}x{ORIGINAL_SIZE} до {FINAL_SIZE}x{FINAL_SIZE} (коэффициент {SCALE_FACTOR}x)")
+    scaled_image = merged_image.resize((FINAL_SIZE, FINAL_SIZE), Image.Resampling.NEAREST)
+    
+    return scaled_image
 
 def save_image(image, output_dir="output"):
     """
