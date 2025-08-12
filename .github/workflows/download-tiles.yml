@@ -45,3 +45,36 @@ jobs:
         else
           echo "No changes to commit"
         fi
+
+  deploy-pages:
+    needs: download-and-merge
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        # Получаем последние изменения после коммита в предыдущем job
+        fetch-depth: 0
+        ref: ${{ github.ref_name }}
+        
+    - name: Pull latest changes
+      run: git pull origin ${{ github.ref_name }}
+        
+    - name: Setup Pages
+      uses: actions/configure-pages@v4
+      
+    - name: Upload to GitHub Pages
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: ./docs
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v4
