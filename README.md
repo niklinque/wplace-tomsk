@@ -46,11 +46,13 @@
 ### Запуск workflow через cron-job.org
 1. Создайте токен Github и дайте права: Actions → read and write и Workflows → read and write
 2. Создайте cron-задание, выберите график выполнения
-3. В URL вставьте `https://api.github.com/repos/USER/REPO/actions/workflows/download-tiles.yml/dispatches` либо `https://api.github.com/repos/niklinque/wplace-tomsk/actions/workflows/create-timelapse.yml/dispatches`
+3. В URL вставьте `https://api.github.com/repos/USER/REPO/actions/workflows/download-tiles.yml/dispatches` либо `https://api.github.com/repos/USER/REPO/actions/workflows/create-timelapse.yml/dispatches`
 4. Во вкладке "Расширенное" заполните заголовки
-   `Authorization`: `token GITHUB_TOKEN`
-   `Accept`: `application/vnd.github.v3+json`
-5. Сохраните настройку, теперь задача автоматизирована
+   ```
+   Authorization: token GITHUB_TOKEN
+   Accept: application/vnd.github.v3+json
+   ```
+6. Сохраните настройку, теперь задача автоматизирована
 
 ## Ручной запуск
 ```bash
