@@ -66,8 +66,8 @@ def create_merged_image():
     Returns:
         PIL.Image: Объединенное изображение или None в случае ошибки
     """
-    # Создаем новое изображение с размером 3000x3000
-    merged_image = Image.new('RGB', (FINAL_SIZE, FINAL_SIZE), color='white')
+    # Создаем новое изображение с размером 3000x3000 с прозрачным фоном
+    merged_image = Image.new('RGBA', (FINAL_SIZE, FINAL_SIZE), color=(0, 0, 0, 0))
     
     failed_tiles = []
     
@@ -82,12 +82,16 @@ def create_merged_image():
                     logger.warning(f"Неожиданный размер тайла {url}: {tile.size}. Изменяю размер до {TILE_SIZE}x{TILE_SIZE}")
                     tile = tile.resize((TILE_SIZE, TILE_SIZE), Image.Resampling.LANCZOS)
                 
+                # Конвертируем в RGBA если необходимо
+                if tile.mode != 'RGBA':
+                    tile = tile.convert('RGBA')
+                
                 # Вычисляем позицию для вставки
                 x = col * TILE_SIZE
                 y = row * TILE_SIZE
                 
-                # Вставляем тайл в объединенное изображение
-                merged_image.paste(tile, (x, y))
+                # Вставляем тайл в объединенное изображение с учетом альфа-канала
+                merged_image.paste(tile, (x, y), tile)
                 logger.info(f"Тайл вставлен в позицию ({x}, {y})")
             else:
                 failed_tiles.append(url)
@@ -116,17 +120,19 @@ def save_image(image, output_dir="output"):
         os.makedirs(output_dir, exist_ok=True)
         
         # Генерируем имя файла с временной меткой
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        from datetime import timedelta, timezone
+        TOMSK_TZ = timezone(timedelta(hours=7))
+        timestamp = datetime.now(TOMSK_TZ).strftime("%Y%m%d_%H%M%S")
         filename = f"merged_tiles_{timestamp}.png"
         filepath = os.path.join(output_dir, filename)
         
-        # Сохраняем изображение
-        image.save(filepath, "PNG", optimize=True)
+        # Сохраняем изображение с прозрачностью
+        image.save(filepath, "PNG", optimize=True, compress_level=9)
         logger.info(f"Изображение сохранено: {filepath}")
         
         # Также сохраняем как "latest.png" для удобства
         latest_path = os.path.join(output_dir, "latest.png")
-        image.save(latest_path, "PNG", optimize=True)
+        image.save(latest_path, "PNG", optimize=True, compress_level=9)
         logger.info(f"Изображение также сохранено как: {latest_path}")
         
         return filepath
@@ -161,3 +167,5 @@ def main():
 if __name__ == "__main__":
     success = main()
     exit(0 if success else 1)
+
+
