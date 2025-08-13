@@ -2,7 +2,7 @@ name: Download and Merge Tiles
 
 concurrency:
   group: wplace-tomsk-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 on:
   workflow_dispatch
