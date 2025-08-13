@@ -1,5 +1,9 @@
 name: Create Daily Timelapse
 
+concurrency:
+  group: wplace-tomsk-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch
 

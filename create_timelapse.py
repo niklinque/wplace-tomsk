@@ -7,6 +7,7 @@
 import os
 import glob
 import logging
+import sys
 from datetime import datetime, timedelta, timezone
 from PIL import Image, ImageDraw
 import cv2
@@ -35,8 +36,14 @@ def get_images_for_date(date_str):
     Returns:
         list: Список путей к файлам изображений
     """
-    pattern = os.path.join(OUTPUT_DIR, f"merged_tiles_{date_str}_*.png")
-    images = glob.glob(pattern)
+    images = []
+    
+    date_folder = os.path.join(OUTPUT_DIR, date_str)
+    if os.path.exists(date_folder):
+        pattern = os.path.join(date_folder, "merged_tiles_*.png")
+        folder_images = glob.glob(pattern)
+        images.extend(folder_images)
+        logger.info(f"В папке {date_str} найдено {len(folder_images)} изображений")
     
     # Сортируем по дате и времени из имени файла: merged_tiles_YYYYMMDD_HHMMSS.png
     def extract_timestamp_key(file_path):
@@ -47,9 +54,10 @@ def get_images_for_date(date_str):
             time_part = parts[3].split('.')[0]
             return f"{date_part}_{time_part}"
         return filename
+    
     images.sort(key=extract_timestamp_key)
     
-    logger.info(f"Найдено {len(images)} изображений за {date_str}")
+    logger.info(f"Всего найдено {len(images)} изображений за {date_str}")
     return images
 
 def resize_image_to_fit(image, target_width, target_height, background_color=(255, 255, 255)):

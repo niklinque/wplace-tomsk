@@ -77,6 +77,7 @@ def download_image(url, timeout=30, retries=5, backoff_seconds=1.5):
 def create_merged_image():
     """
     Создает объединенное изображение из всех тайлов.
+    Дамп сохраняется только при 100% успешной загрузке всех тайлов.
     
     Returns:
         PIL.Image: Объединенное изображение или None в случае ошибки
@@ -85,10 +86,15 @@ def create_merged_image():
     merged_image = Image.new('RGBA', (ORIGINAL_SIZE, ORIGINAL_SIZE), color=(0, 0, 0, 0))
     
     failed_tiles = []
+    successful_tiles = 0
+    total_tiles = GRID_SIZE * GRID_SIZE
+    
+    logger.info(f"Начинаю загрузку {total_tiles} тайлов (сетка {GRID_SIZE}x{GRID_SIZE})")
     
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             url = TILE_URLS[row][col]
+            logger.info(f"Загружаю тайл [{row+1},{col+1}] из {total_tiles}: {url}")
             tile = download_image(url)
             
             if tile is not None:
@@ -107,17 +113,23 @@ def create_merged_image():
                 
                 # Вставляем тайл в объединенное изображение с учетом альфа-канала
                 merged_image.paste(tile, (x, y), tile)
-                logger.info(f"Тайл вставлен в позицию ({x}, {y})")
+                successful_tiles += 1
+                logger.info(f"✅ Тайл [{row+1},{col+1}] успешно вставлен в позицию ({x}, {y}) - {successful_tiles}/{total_tiles}")
             else:
                 failed_tiles.append(url)
-                logger.error(f"Не удалось загрузить тайл: {url}")
+                logger.error(f"❌ Не удалось загрузить тайл [{row+1},{col+1}]: {url}")
     
+    # Проверяем результат загрузки
     if failed_tiles:
-        total = GRID_SIZE * GRID_SIZE
-        logger.error(f"Не удалось загрузить {len(failed_tiles)} из {total} тайлов. Прерываю сохранение, чтобы избежать пустых мест.")
-        for url in failed_tiles:
-            logger.error(f"Неудачный тайл: {url}")
+        logger.error(f"❌ ЗАГРУЗКА НЕУДАЧНА: {len(failed_tiles)} из {total_tiles} тайлов не загружены")
+        logger.error("Дамп НЕ будет сохранен, так как нужны ВСЕ тайлы для корректного отображения")
+        for i, url in enumerate(failed_tiles, 1):
+            logger.error(f"  {i}. Неудачный тайл: {url}")
         return None
+    
+    # Все тайлы загружены успешно
+    logger.info(f"✅ ЗАГРУЗКА УСПЕШНА: все {successful_tiles}/{total_tiles} тайлов загружены")
+    logger.info("Создаю объединенный дамп...")
 
     # Увеличиваем изображение до 9000x9000 для лучшей видимости пикселей
     logger.info(f"Масштабирую изображение с {ORIGINAL_SIZE}x{ORIGINAL_SIZE} до {FINAL_SIZE}x{FINAL_SIZE} (коэффициент {SCALE_FACTOR}x)")
@@ -127,7 +139,7 @@ def create_merged_image():
 
 def save_image(image, output_dir="output"):
     """
-    Сохраняет изображение с временной меткой.
+    Сохраняет изображение с временной меткой в папку с датой.
     
     Args:
         image (PIL.Image): Изображение для сохранения
@@ -140,18 +152,23 @@ def save_image(image, output_dir="output"):
         # Создаем директорию если её нет
         os.makedirs(output_dir, exist_ok=True)
         
-        # Генерируем имя файла с временной меткой
+        # Создаем папку с сегодняшней датой
         from datetime import timedelta, timezone
         TOMSK_TZ = timezone(timedelta(hours=7))
+        today = datetime.now(TOMSK_TZ).strftime("%Y%m%d")
+        today_folder = os.path.join(output_dir, today)
+        os.makedirs(today_folder, exist_ok=True)
+        
+        # Генерируем имя файла с временной меткой
         timestamp = datetime.now(TOMSK_TZ).strftime("%Y%m%d_%H%M%S")
         filename = f"merged_tiles_{timestamp}.png"
-        filepath = os.path.join(output_dir, filename)
+        filepath = os.path.join(today_folder, filename)
         
-        # Сохраняем изображение с прозрачностью
+        # Сохраняем изображение с прозрачностью в папку с датой
         image.save(filepath, "PNG", optimize=True, compress_level=9)
         logger.info(f"Изображение сохранено: {filepath}")
         
-        # Также сохраняем как "latest.png" для удобства
+        # Также сохраняем как "latest.png" в корне output для удобства
         latest_path = os.path.join(output_dir, "latest.png")
         image.save(latest_path, "PNG", optimize=True, compress_level=9)
         logger.info(f"Изображение также сохранено как: {latest_path}")
@@ -165,24 +182,33 @@ def save_image(image, output_dir="output"):
 def main():
     """
     Основная функция скрипта.
+    Дамп сохраняется только при 100% успешной загрузке всех тайлов.
     """
-    logger.info("Начинаю процесс загрузки и объединения тайлов")
+    logger.info("🚀 Начинаю процесс загрузки и объединения тайлов")
+    logger.info("📋 Требование: дамп будет создан только при загрузке ВСЕХ 9 тайлов")
     
     # Создаем объединенное изображение
     merged_image = create_merged_image()
     
     if merged_image is not None:
         # Сохраняем результат
+        logger.info("💾 Сохраняю объединенный дамп...")
         saved_path = save_image(merged_image)
         
         if saved_path:
-            logger.info(f"Процесс успешно завершен. Результат сохранен в: {saved_path}")
+            logger.info(f"✅ ПРОЦЕСС УСПЕШНО ЗАВЕРШЕН!")
+            logger.info(f"📁 Дамп сохранен в: {saved_path}")
+            logger.info(f"🔗 Latest версия: {os.path.join('output', 'latest.png')}")
             return True
         else:
-            logger.error("Не удалось сохранить объединенное изображение")
+            logger.error("❌ Не удалось сохранить объединенное изображение")
             return False
     else:
-        logger.error("Не удалось создать объединенное изображение")
+        logger.error("❌ Не удалось создать объединенное изображение")
+        logger.error("💡 Возможные причины:")
+        logger.error("   - Не все тайлы доступны для загрузки")
+        logger.error("   - Проблемы с сетью или сервером")
+        logger.error("   - Неверные URL адреса тайлов")
         return False
 
 if __name__ == "__main__":
