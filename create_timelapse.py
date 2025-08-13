@@ -24,6 +24,8 @@ VIDEO_HEIGHT = 1080
 FPS = 30  # 30 кадров в секунду
 BACKGROUND_COLOR = (255, 255, 255)  # Белый фон
 TOMSK_TZ = timezone(timedelta(hours=7))
+BORDER_COLOR = (255, 0, 0)
+BORDER_THICKNESS = 8
 
 def get_images_for_date(date_str):
     """
@@ -38,8 +40,20 @@ def get_images_for_date(date_str):
     pattern = os.path.join(OUTPUT_DIR, f"merged_tiles_{date_str}_*.png")
     images = glob.glob(pattern)
     
-    # Сортируем по времени в имени файла
-    images.sort(key=lambda x: os.path.basename(x).split('_')[2])
+    # Сортируем по полной временной метке (YYYYMMDD + HHMMSS) из имени файла
+    def extract_sort_key(path):
+        base = os.path.basename(path)
+        parts = base.split('_')
+        # Ожидаемый формат: merged_tiles_YYYYMMDD_HHMMSS.png
+        if len(parts) >= 4 and parts[0] == 'merged' and parts[1] == 'tiles':
+            date_part = parts[2]
+            time_part = parts[3].split('.')[0]
+            # Возвращаем строку фиксированной длины, лексикографический порядок == хронологическому
+            return f"{date_part}{time_part}"
+        # Фолбэк — время модификации файла
+        return os.path.getmtime(path)
+
+    images.sort(key=extract_sort_key)
     
     logger.info(f"Найдено {len(images)} изображений за {date_str}")
     return images
@@ -112,6 +126,28 @@ def add_timestamp_overlay(image, timestamp, font_size=36):
     
     return image
 
+def add_red_border(image, border_thickness=BORDER_THICKNESS, color=BORDER_COLOR):
+    """
+    Рисует рамку по краям изображения.
+    
+    Args:
+        image (PIL.Image): Изображение
+        border_thickness (int): Толщина рамки в пикселях
+        color (tuple): Цвет рамки (R, G, B)
+    
+    Returns:
+        PIL.Image: Изображение с рамкой
+    """
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
+    half = max(1, border_thickness // 2)
+    left = half
+    top = half
+    right = width - 1 - half
+    bottom = height - 1 - half
+    draw.rectangle([left, top, right, bottom], outline=color, width=border_thickness)
+    return image
+
 def create_timelapse_video(images, output_path):
     """
     Создает видео-таймлапс из списка изображений.
@@ -155,6 +191,9 @@ def create_timelapse_video(images, output_path):
                 
                 # Добавляем временную метку
                 final_image = add_timestamp_overlay(resized_image, timestamp)
+                
+                # Добавляем красную рамку
+                final_image = add_red_border(final_image)
                 
                 # Конвертируем PIL в OpenCV формат
                 opencv_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)

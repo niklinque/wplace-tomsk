@@ -6,6 +6,8 @@ on:
 jobs:
   download-and-merge:
     runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tomsk
     
     steps:
     - name: Checkout repository
@@ -40,7 +42,7 @@ jobs:
         git config --local user.name "GitHub Action"
         git add output/
         if ! git diff --staged --quiet; then
-          git commit -m "Auto-update merged tiles - $(date)"
+          git commit -m "Автоматически создан дамп - $(date)"
           git push
         else
           echo "No changes to commit"

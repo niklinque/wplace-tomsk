@@ -6,6 +6,8 @@ on:
 jobs:
   create-timelapse:
     runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Tomsk
     
     steps:
     - name: Checkout repository
@@ -50,7 +52,7 @@ jobs:
         git config --local user.name "GitHub Action"
         git add timelapse/ README.md
         if ! git diff --staged --quiet; then
-          git commit -m "Auto-create daily timelapse - $(date)"
+          git commit -m "Автоматически создан таймлапс - $(date)"
           git push
         else
           echo "No new timelapse to commit"
