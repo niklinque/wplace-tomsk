@@ -38,8 +38,16 @@ def get_images_for_date(date_str):
     pattern = os.path.join(OUTPUT_DIR, f"merged_tiles_{date_str}_*.png")
     images = glob.glob(pattern)
     
-    # Сортируем по времени в имени файла
-    images.sort(key=lambda x: os.path.basename(x).split('_')[2])
+    # Сортируем по дате и времени из имени файла: merged_tiles_YYYYMMDD_HHMMSS.png
+    def extract_timestamp_key(file_path):
+        filename = os.path.basename(file_path)
+        parts = filename.split('_')
+        if len(parts) >= 4:
+            date_part = parts[2]
+            time_part = parts[3].split('.')[0]
+            return f"{date_part}_{time_part}"
+        return filename
+    images.sort(key=extract_timestamp_key)
     
     logger.info(f"Найдено {len(images)} изображений за {date_str}")
     return images
@@ -112,6 +120,31 @@ def add_timestamp_overlay(image, timestamp, font_size=36):
     
     return image
 
+def add_red_border(image, border_color=(255, 0, 0), border_thickness=4):
+    """
+    Добавляет красную рамку вокруг изображения.
+    
+    Args:
+        image (PIL.Image): Изображение
+        border_color (tuple): Цвет рамки в формате RGB
+        border_thickness (int): Толщина рамки в пикселях
+        
+    Returns:
+        PIL.Image: Изображение с рамкой
+    """
+    draw = ImageDraw.Draw(image)
+    width, height = image.size
+    # Рамка рисуется внутри границ изображения
+    for offset in range(border_thickness):
+        draw.rectangle(
+            [
+                (0 + offset, 0 + offset),
+                (width - 1 - offset, height - 1 - offset)
+            ],
+            outline=border_color
+        )
+    return image
+
 def create_timelapse_video(images, output_path):
     """
     Создает видео-таймлапс из списка изображений.
@@ -155,6 +188,9 @@ def create_timelapse_video(images, output_path):
                 
                 # Добавляем временную метку
                 final_image = add_timestamp_overlay(resized_image, timestamp)
+                
+                # Добавляем красную рамку вокруг финального кадра
+                final_image = add_red_border(final_image)
                 
                 # Конвертируем PIL в OpenCV формат
                 opencv_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)
