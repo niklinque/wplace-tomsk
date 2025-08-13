@@ -63,7 +63,7 @@ def resize_image_to_fit(image, target_width, target_height, background_color=(25
         background_color (tuple): Цвет фона
         
     Returns:
-        PIL.Image: Изображение с измененным размером
+        tuple: (PIL.Image, (x, y, new_width, new_height)) — изображение и позиция/размер вставленного контента
     """
     # Вычисляем коэффициент масштабирования для сохранения пропорций
     img_width, img_height = image.size
@@ -91,7 +91,7 @@ def resize_image_to_fit(image, target_width, target_height, background_color=(25
     else:
         result.paste(resized_image, (x, y))
     
-    return result
+    return result, (x, y, new_width, new_height)
 
 def add_timestamp_overlay(image, timestamp, font_size=36):
     """
@@ -120,7 +120,7 @@ def add_timestamp_overlay(image, timestamp, font_size=36):
     
     return image
 
-def add_red_border(image, border_color=(255, 0, 0), border_thickness=4):
+def add_red_border(image, border_color=(255, 0, 0), border_thickness=4, box=None):
     """
     Добавляет красную рамку вокруг изображения.
     
@@ -133,13 +133,19 @@ def add_red_border(image, border_color=(255, 0, 0), border_thickness=4):
         PIL.Image: Изображение с рамкой
     """
     draw = ImageDraw.Draw(image)
-    width, height = image.size
-    # Рамка рисуется внутри границ изображения
+    if box is None:
+        x0, y0 = 0, 0
+        x1, y1 = image.width - 1, image.height - 1
+    else:
+        x, y, w, h = box
+        x0, y0 = x, y
+        x1, y1 = x + w - 1, y + h - 1
+    # Рисуем несколько прямоугольников внутрь для толщины рамки
     for offset in range(border_thickness):
         draw.rectangle(
             [
-                (0 + offset, 0 + offset),
-                (width - 1 - offset, height - 1 - offset)
+                (x0 + offset, y0 + offset),
+                (x1 - offset, y1 - offset)
             ],
             outline=border_color
         )
@@ -184,13 +190,13 @@ def create_timelapse_video(images, output_path):
                     timestamp = f"Кадр {i+1}"
                 
                 # Изменяем размер и добавляем на белый фон
-                resized_image = resize_image_to_fit(pil_image, VIDEO_WIDTH, VIDEO_HEIGHT, BACKGROUND_COLOR)
+                resized_image, placement = resize_image_to_fit(pil_image, VIDEO_WIDTH, VIDEO_HEIGHT, BACKGROUND_COLOR)
                 
                 # Добавляем временную метку
                 final_image = add_timestamp_overlay(resized_image, timestamp)
                 
-                # Добавляем красную рамку вокруг финального кадра
-                final_image = add_red_border(final_image)
+                # Добавляем красную рамку вокруг области вставленного изображения (9000x9000 после масштабирования)
+                final_image = add_red_border(final_image, box=placement)
                 
                 # Конвертируем PIL в OpenCV формат
                 opencv_image = cv2.cvtColor(np.array(final_image), cv2.COLOR_RGB2BGR)

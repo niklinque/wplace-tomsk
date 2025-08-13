@@ -5,6 +5,8 @@
 """
 
 import os
+import time
+from io import BytesIO
 import requests
 from PIL import Image
 from datetime import datetime
@@ -34,32 +36,43 @@ ORIGINAL_SIZE = TILE_SIZE * GRID_SIZE  # Оригинальный размер (
 FINAL_SIZE = 9000  # Увеличенный размер для лучшей видимости пикселей
 SCALE_FACTOR = FINAL_SIZE // ORIGINAL_SIZE  # Коэффициент масштабирования (3x)
 
-def download_image(url, timeout=30):
+def download_image(url, timeout=30, retries=5, backoff_seconds=1.5):
     """
     Загружает изображение по URL.
     
     Args:
         url (str): URL изображения
         timeout (int): Таймаут запроса в секундах
+        retries (int): Количество попыток загрузки
+        backoff_seconds (float): Базовая пауза между попытками
         
     Returns:
         PIL.Image: Загруженное изображение или None в случае ошибки
     """
-    try:
-        logger.info(f"Загружаю изображение: {url}")
-        response = requests.get(url, timeout=timeout)
-        response.raise_for_status()
-        
-        image = Image.open(requests.get(url, stream=True).raw)
-        logger.info(f"Успешно загружено: {url}")
-        return image
-        
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка при загрузке {url}: {e}")
-        return None
-    except Exception as e:
-        logger.error(f"Ошибка при обработке изображения {url}: {e}")
-        return None
+    last_error = None
+    for attempt in range(1, retries + 1):
+        try:
+            logger.info(f"Загружаю изображение (попытка {attempt}/{retries}): {url}")
+            response = requests.get(url, timeout=timeout, stream=True)
+            response.raise_for_status()
+            # Читаем содержимое и открываем через BytesIO, чтобы не зависеть от открытого потока
+            content = response.content
+            image = Image.open(BytesIO(content))
+            image.load()
+            logger.info(f"Успешно загружено: {url}")
+            return image
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            logger.warning(f"Ошибка при загрузке {url} (попытка {attempt}/{retries}): {e}")
+        except Exception as e:
+            last_error = e
+            logger.warning(f"Ошибка при обработке изображения {url} (попытка {attempt}/{retries}): {e}")
+        # Бэкофф между попытками, если не последняя
+        if attempt < retries:
+            sleep_seconds = backoff_seconds * attempt
+            time.sleep(sleep_seconds)
+    logger.error(f"Не удалось загрузить {url} после {retries} попыток: {last_error}")
+    return None
 
 def create_merged_image():
     """
@@ -100,10 +113,12 @@ def create_merged_image():
                 logger.error(f"Не удалось загрузить тайл: {url}")
     
     if failed_tiles:
-        logger.warning(f"Не удалось загрузить {len(failed_tiles)} тайлов из {GRID_SIZE * GRID_SIZE}")
+        total = GRID_SIZE * GRID_SIZE
+        logger.error(f"Не удалось загрузить {len(failed_tiles)} из {total} тайлов. Прерываю сохранение, чтобы избежать пустых мест.")
         for url in failed_tiles:
-            logger.warning(f"Неудачный тайл: {url}")
-    
+            logger.error(f"Неудачный тайл: {url}")
+        return None
+
     # Увеличиваем изображение до 9000x9000 для лучшей видимости пикселей
     logger.info(f"Масштабирую изображение с {ORIGINAL_SIZE}x{ORIGINAL_SIZE} до {FINAL_SIZE}x{FINAL_SIZE} (коэффициент {SCALE_FACTOR}x)")
     scaled_image = merged_image.resize((FINAL_SIZE, FINAL_SIZE), Image.Resampling.NEAREST)
