@@ -1,6 +1,6 @@
 # Дампы Томска в wplace.live
 
-## Ежедневные таймлапсы из этих дампов в этом [репозитории](https://github.com/niklinque/wplace-tomsk-timelapse)
+## Ежедневные таймлапсы из этих дампов в этом [репозитории](https://github.com/niklinque/wplace-tomsk-timelapse) и [телеграм-канале](https://t.me/wplacetomsktimelapse)
 
 Этот проект автоматически загружает тайлы изображений Томска с сайта wplace.live каждые 5 минут и объединяет их в одну большую картинку.
 
