@@ -44,6 +44,8 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
+        # Отключаем sparse checkout для коммита
+        git sparse-checkout disable
         # Добавляем только новые и измененные файлы в output/
         git add -A output/
         # Проверяем, есть ли изменения для коммита
