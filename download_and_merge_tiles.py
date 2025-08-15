@@ -168,11 +168,6 @@ def save_image(image, output_dir="output"):
         image.save(filepath, "PNG", optimize=True, compress_level=9)
         logger.info(f"Изображение сохранено: {filepath}")
         
-        # Также сохраняем как "latest.png" в корне output для удобства
-        latest_path = os.path.join(output_dir, "latest.png")
-        image.save(latest_path, "PNG", optimize=True, compress_level=9)
-        logger.info(f"Изображение также сохранено как: {latest_path}")
-        
         return filepath
         
     except Exception as e:
