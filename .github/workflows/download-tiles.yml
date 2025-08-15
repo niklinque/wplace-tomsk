@@ -35,19 +35,15 @@ jobs:
     - name: Download and merge tiles
       run: python download_and_merge_tiles.py
       
-    - name: Upload artifacts
-      uses: actions/upload-artifact@v4
-      with:
-        name: merged-tiles-${{ github.run_number }}
-        path: output/
-        retention-days: 30
-        
     - name: Commit and push if changed
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add output/
+        # Добавляем только новые и измененные файлы в output/
+        git add -A output/
+        # Проверяем, есть ли изменения для коммита
         if ! git diff --staged --quiet; then
+          echo "Changes detected, committing..."
           git commit -m "Автоматически создан дамп - $(date)"
           git push
         else
