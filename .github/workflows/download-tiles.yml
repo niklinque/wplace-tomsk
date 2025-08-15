@@ -16,6 +16,11 @@ jobs:
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+        sparse-checkout: |
+          requirements.txt
+          download_and_merge_tiles.py
       
     - name: Set up Python
       uses: actions/setup-python@v5
