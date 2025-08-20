@@ -10,6 +10,7 @@ from io import BytesIO
 import requests
 from PIL import Image
 from datetime import datetime
+import concurrent.futures
 import logging
 
 # Настройка логирования
@@ -89,35 +90,43 @@ def create_merged_image():
     successful_tiles = 0
     total_tiles = GRID_SIZE * GRID_SIZE
     
-    logger.info(f"Начинаю загрузку {total_tiles} тайлов (сетка {GRID_SIZE}x{GRID_SIZE})")
+    logger.info(f"Начинаю параллельную загрузку {total_tiles} тайлов (сетка {GRID_SIZE}x{GRID_SIZE})")
     
-    for row in range(GRID_SIZE):
-        for col in range(GRID_SIZE):
-            url = TILE_URLS[row][col]
-            logger.info(f"Загружаю тайл [{row+1},{col+1}] из {total_tiles}: {url}")
-            tile = download_image(url)
-            
-            if tile is not None:
-                # Убеждаемся, что размер тайла корректный
-                if tile.size != (TILE_SIZE, TILE_SIZE):
-                    logger.warning(f"Неожиданный размер тайла {url}: {tile.size}. Изменяю размер до {TILE_SIZE}x{TILE_SIZE}")
-                    tile = tile.resize((TILE_SIZE, TILE_SIZE), Image.Resampling.LANCZOS)
-                
-                # Конвертируем в RGBA если необходимо
-                if tile.mode != 'RGBA':
-                    tile = tile.convert('RGBA')
-                
-                # Вычисляем позицию для вставки
-                x = col * TILE_SIZE
-                y = row * TILE_SIZE
-                
-                # Вставляем тайл в объединенное изображение с учетом альфа-канала
-                merged_image.paste(tile, (x, y), tile)
-                successful_tiles += 1
-                logger.info(f"✅ Тайл [{row+1},{col+1}] успешно вставлен в позицию ({x}, {y}) - {successful_tiles}/{total_tiles}")
-            else:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=total_tiles) as executor:
+        # Создаем словарь для сопоставления будущих результатов с их метаданными (URL, строка, столбец)
+        future_to_tile_info = {
+            executor.submit(download_image, TILE_URLS[row][col]): {
+                "row": row, "col": col, "url": TILE_URLS[row][col]
+            }
+            for row in range(GRID_SIZE) for col in range(GRID_SIZE)
+        }
+
+        # Обрабатываем результаты по мере их завершения
+        for future in concurrent.futures.as_completed(future_to_tile_info):
+            info = future_to_tile_info[future]
+            row, col, url = info["row"], info["col"], info["url"]
+
+            try:
+                tile = future.result()
+                if tile is not None:
+                    if tile.size != (TILE_SIZE, TILE_SIZE):
+                        logger.warning(f"Неожиданный размер тайла {url}: {tile.size}. Изменяю размер до {TILE_SIZE}x{TILE_SIZE}")
+                        tile = tile.resize((TILE_SIZE, TILE_SIZE), Image.Resampling.LANCZOS)
+
+                    if tile.mode != 'RGBA':
+                        tile = tile.convert('RGBA')
+
+                    x = col * TILE_SIZE
+                    y = row * TILE_SIZE
+
+                    merged_image.paste(tile, (x, y), tile)
+                    successful_tiles += 1
+                    logger.info(f"✅ Тайл [{row+1},{col+1}] успешно вставлен в позицию ({x}, {y}) - {successful_tiles}/{total_tiles}")
+                else:
+                    failed_tiles.append(url)
+            except Exception as exc:
                 failed_tiles.append(url)
-                logger.error(f"❌ Не удалось загрузить тайл [{row+1},{col+1}]: {url}")
+                logger.error(f"❌ Исключение при обработке тайла [{row+1},{col+1}] ({url}): {exc}")
     
     # Проверяем результат загрузки
     if failed_tiles:
@@ -193,7 +202,6 @@ def main():
         if saved_path:
             logger.info(f"✅ ПРОЦЕСС УСПЕШНО ЗАВЕРШЕН!")
             logger.info(f"📁 Дамп сохранен в: {saved_path}")
-            logger.info(f"🔗 Latest версия: {os.path.join('output', 'latest.png')}")
             return True
         else:
             logger.error("❌ Не удалось сохранить объединенное изображение")
