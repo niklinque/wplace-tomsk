@@ -47,10 +47,7 @@ jobs:
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        # Отключаем sparse checkout для коммита
-        git sparse-checkout disable
-        # Добавляем только новые и измененные файлы в output/
-        git add -A output/
+        git add --sparse -A output/
         # Проверяем, есть ли изменения для коммита
         if ! git diff --staged --quiet; then
           echo "Changes detected, committing..."
