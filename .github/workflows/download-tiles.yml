@@ -1,4 +1,4 @@
-name: Download and Merge Tiles
+name: Сохранение дампов
 
 concurrency:
   group: wplace-tomsk-${{ github.ref }}
@@ -10,26 +10,32 @@ on:
 jobs:
   download-and-merge:
     runs-on: ubuntu-latest
-    env:
-      TZ: Asia/Tomsk
     
     steps:
-    - name: Checkout repository
+    - name: Checkout репозитория
       uses: actions/checkout@v4
       with:
         fetch-depth: 1
         sparse-checkout: |
           requirements.txt
-          download_and_merge_tiles.py
+          main.py
+          config.py
       
-    - name: Set up Python
+    - name: Настройка Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.11'
         cache: 'pip'
         cache-dependency-path: 'requirements.txt'
+
+    - name: Чтение часового пояса
+      id: set_timezone
+      run: |
+        TIMEZONE_VALUE=$(grep '^TIMEZONE' config.py | cut -d '"' -f 2)
+        echo "TZ=$TIMEZONE_VALUE" >> $GITHUB_ENV
+        echo "Timezone set to: $TIMEZONE_VALUE"
         
-    - name: Install dependencies
+    - name: Установка зависимостей
       run: |
         python -m pip install --upgrade pip
         echo "Installing dependencies with pip cache..."
@@ -37,13 +43,13 @@ jobs:
         echo "Pip cache location: $(pip cache dir)"
         echo "Pip cache info: $(pip cache info)"
         
-    - name: Create output directory
+    - name: Создание директории
       run: mkdir -p output
       
-    - name: Download and merge tiles
-      run: python download_and_merge_tiles.py
+    - name: Загрузка дампа
+      run: python main.py
       
-    - name: Commit and push if changed
+    - name: Commit и push дампа
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
