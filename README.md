@@ -55,7 +55,7 @@ TIMEZONE = "Asia/Tomsk" # Для корректных временных мет�
 
 Для регулярного автоматического запуска (например, каждые 5 минут) можно использовать внешний сервис, такой как [cron-job.org](https://cron-job.org/en/):
 
-1.  **Создайте Personal Access Token** в [настройках GitHub](https://github.com/settings/tokens) с правами `repo` (для коммита файлов) и `workflow` (для запуска Actions).
+1.  **Создайте Fine-grained personal access token** в [настройках GitHub](https://github.com/settings/tokens](https://github.com/settings/personal-access-tokens) с правами `actions` и `workflows` (read and write) для вашего репозитория.
 2.  **Настройте cron-задание**:
     -   **URL**: `https://api.github.com/repos/ВАШ_ПОЛЬЗОВАТЕЛЬ/ВАШ_РЕПОЗИТОРИЙ/actions/workflows/download-tiles.yml/dispatches`
     -   **Method**: `POST`
