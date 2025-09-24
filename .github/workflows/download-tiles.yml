@@ -1,9 +1,5 @@
 name: Сохранение дампов
 
-concurrency:
-  group: wplace-tomsk-${{ github.ref }}
-  cancel-in-progress: true
-
 on:
   workflow_dispatch
   
